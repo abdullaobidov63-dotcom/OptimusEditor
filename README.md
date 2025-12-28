@@ -1,1 +1,1 @@
-# Optimus Editor - A new weight code editor
+# Optimus Editor - A new lightweight code editor
