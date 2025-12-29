@@ -1,36 +1,12 @@
-from textual.app import (
-    App, 
-    ComposeResult
-)
-
-# from loguru import logger
-from core.text_data import texts
-#from textual.events import Button.Pressed
-# from textual.events import Button.Pressed
+from textual.app import App, ComposeResult
+from textual.containers import Horizontal, Vertical, Container
 from textual.widgets import (
-    Button, 
-    Label, 
-    Header, 
-    TabbedContent,
-    TabPane,
-    ListView,
-    ListItem, 
-    ContentSwitcher,
-    Input,
-    Tab,
-    Markdown
+    Button, Label, Header, Footer, TabbedContent, TabPane,
+    ListView, ListItem, ContentSwitcher, Input, Tab,
+    Markdown, TextArea, DirectoryTree
 )
-
-try:
-    from core.custom_widgets.dialog_window import DialogWindow
-    print("Widget DialogWindow secussfully imported from core.custom_diwgets.dialog_window.py")
-except:
-    print("ImportError")
-
-#from textual.containters import (
-#    Horizontal,
-#    Vertical
-#)
+from textual.binding import Binding
+#from textual.command import command
 
 class AppEditor(App):
     CSS = """
@@ -39,100 +15,54 @@ class AppEditor(App):
         align-vertical: middle;
     }
 
-    #get_started_btn {
-        width: 30%;
-    }
-
-    #welcome-label {
-        align: center middle;
-        margin-bottom: 2;
+    #sidebar-container {
+        width: 20%;
     }
 
     TabbedContent {
         height: 50%;
         margin-bottom: 1;
     }
+
+    Vertical#center-container {
+        dock: top;
+        border: white;
+        align: center middle;
+        height: 20;
+        width: 25;
+    }
     """
     TITLE = "OptimusEditor"
     SUBTITLE = "File"
 
+    # 2. ИСПРАВЛЕНО: action="command_palette" (без опечатки)
+    BINDINGS = [
+        Binding(key="ctrl+alt+p", action="command_palette", description="Палитра Команд")
+    ]
+
     def __init__(self):
         super().__init__()
         self.open_files = {}
-        self.dialog_window_text = texts["dialog"]["create_file"]["text"]
+        self.text_area_text = '''print("Hello, World!")'''
+        self.work_dir = "./"
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        yield Label("Welcome to OptimusEditor!", id="welcome-label")
-        yield Button("Start Coding -->", id="get_started_btn", variant="primary")
+        yield Header(id="header")
+        with Horizontal():
+            with Vertical(id="sidebar-container"):
+                if self.work_dir != "":
+                    yield DirectoryTree(self.work_dir)
+            with Vertical(id="main-content-container"):
+                yield TextArea(self.text_area_text, language="python")
+        yield Footer()
 
-        yield Button("Open File", id="open_button")
-        yield Button("Close File", id="close_button")
-        yield Button("Create File", id="create_file")
-        yield Button("Delete File", id="delete_file")
-        
-        """ 
-        |======================================================|
-        |                   RIGHT                              |
-        |======================================================|
-        """
+    def action_create_file(self):
+        self.notify("File Created")
 
-        """ 
-        |======================================================|
-        |                    LEFT                              |
-        |======================================================|
-        """
-        yield ListView(
-            ListItem(Label(self.dialog_window_text)),
-            id="listview"
-        )
-        """ 
-        |======================================================|
-        |                   CENTER                             |
-        |======================================================|
-        """
-        """
-            tab_name: {
-                in_tab: "wadasdwads",
-            }
-        """
-        # Вкладка, которая будет открыта по умолчанию
-        #                    |
-        with TabbedContent(initial="Welcome"):
-            with TabPane("Welcome"):
-                yield Markdown("# Welcome To Optimus Editor")
-            with TabPane("Second Tab"):
-                yield Markdown("# Second Page")
-        yield Input(id="input")
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "open_button":
-            self.open_file()
-        elif event.button.id == "close_button":
-            self.close_current_tab()
-        elif event.button.id == "":
-            pass
-
-    def on_tabbed_content_tab_activated(self, event) -> None:
-        self.notify(f"Переключено на вкладку: {event.tab.label_text}")
-    
-    def open_file(self, file_name):
-        # Проверяем, есть ли вкладка с таким файлом, если есть, то просто меняем активную вкладку на существующцую
-        for tab in self.query(TabPane):
-            if tab.id == filename:
-                self.query(TabbedContent).active = filename
-            else:
-                pass
-    
-    def close_current_tab():
-        pass
-    
-    def create_file(self, filename):
-        pass
-    
-    def delete_file(self, filename):
-        pass
+    def action_open_file(self):
+        self.notify("File Opened")
 
 if __name__ == "__main__":
     app = AppEditor()
     app.run()
+
