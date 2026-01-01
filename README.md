@@ -1,3 +1,3 @@
 # Optimus Editor - A new lightweight code editor
 
-for test editor
+okay, this text, writted with optimus editor

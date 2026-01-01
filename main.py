@@ -14,9 +14,23 @@ from textual.events import Key
 open_folder = None
 
 class OpenFolderPage(Screen):
+
+    CSS = """
+#select {
+    align-horizontal: center;
+    align-vertical: middle;
+}
+
+#cancel {
+    align-horizontal: center;
+    align-vertical: middle;
+}
+"""
+
     def __init__(self):
         super().__init__()
         self.selected_folder = None
+        self.current_folder = None
 
     
     def compose(self) -> ComposeResult:
@@ -30,16 +44,22 @@ class OpenFolderPage(Screen):
         id = event.button.id
         if id == "select":
             global open_folder
+            open_folder = self.current_folder
             if open_folder is not None:
-                self.push_screen(AppEditor, Editor)
+                self.app.push_screen(Editor())
             else:
                 self.notify("Вы не выбрали файл!")
         elif id == "cancel":
             self.app.exit()
     
     def on_directory_tree_file_selected(self, event):
-        global open_folder
-        open_folder = event.path
+        path = Path(event.path)
+        if path.is_dir():
+            self.current_folder = path
+            self.notify(f"{self.current_folder} : Folder")
+        else:
+            self.current_folder = path.parent
+            self.notify(f"{self.current_folder} : Folder")
 
 class Editor(Screen):
     CSS = """
