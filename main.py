@@ -65,7 +65,10 @@ class Editor(Screen):
         self.work_dir = work_dir       # Папка, открытая пользователем
         self.current_file: Path = None # Единая переменная для выбранного файла
         self.text_area_text = "print('Hello, World!')"  # Начальный текст
+
         self.cmd_input = "" # для ввода в терминале
+        self.cmd_send = subprocess.run(self.cmd_input, shell=True, capture_output=True, text=True)
+        self.cmd_output = self.cmd_send.stdout # Получаем вывод команды
 
     def compose(self) -> ComposeResult:
         # Верхний и нижний колонтитулы
@@ -86,8 +89,9 @@ class Editor(Screen):
                     with TabPane(tab_name):
                         yield TextArea(self.text_area_text, language="python", id="text_area")
                     with TabPane("Terminal"):
-                        yield TextArea("Terminal Output", id="cmd_output_text_area")
-                        yield TextArea("Terminal Input", id="cmd_input_text_area")
+                        yield TextArea(self.cmd_output, id="cmd_output_text_area")
+                        yield TextArea(self.cmd_input, id="cmd_input_text_area")
+                        yield Button("Run Command", id="cmd_run_btn")
 
                     # Вкладка Markdown — появится только если выбран файл .md
                     if self.current_file and self.current_file.suffix == ".md":
@@ -135,6 +139,14 @@ class Editor(Screen):
         if event.key == "tab" and focused and focused.id == "text_area":
             focused.insert_text("    ")
             event.stop()
+        if event.key == "enter" and focused and focused.id == "cmd_input_text_area":
+            self.query_one("#cmd_output_text_area").insert_text(self.cmd_output)
+    
+    async def on_button_pressed(self, event: Key):
+        id = event.button.id
+        if id == "cmd_run_btn":
+            self.cmd_output = subprocess.run(self.query_one("#cmd_input_text_area").text, shell=True, capture_output=True, text=True).stdout
+            self.query_one("#cmd_output_text_area").text = self.cmd_output
 
 
 # -----------------------------
