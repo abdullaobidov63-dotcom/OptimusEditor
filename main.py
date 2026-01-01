@@ -6,6 +6,7 @@ from textual.binding import Binding
 from textual.events import Key
 from core.highlight import *
 import subprocess
+import re
 
 # -----------------------------
 # Экран выбора папки
@@ -70,6 +71,19 @@ class Editor(Screen):
         self.cmd_send = subprocess.run(self.cmd_input, shell=True, capture_output=True, text=True)
         self.cmd_output = self.cmd_send.stdout # Получаем вывод команды
 
+    def on_mount(self):
+        self._latest_text = "" # Последний текст/символ, который мы вводили
+        self._highlight_timer: Timer = self.set_interval(0.05, self.check_text)
+    
+    def check_text(self):
+        ta = self.query_one(TextArea)
+        code = ta.text
+        
+        if code != self._latest_text:
+            self.notify("Changed")
+        else:
+            pass
+
     def compose(self) -> ComposeResult:
         # Верхний и нижний колонтитулы
         yield Header()
@@ -129,6 +143,8 @@ class Editor(Screen):
             # Определяем язык подсветки (для твоей функции get_file_ext)
             text_area.language = get_file_ext(str(self.current_file))
 
+            self._latest_text = self.text_area_text
+
             self.notify(f"Файл выбран: {self.current_file}")
 
     # -----------------------------
@@ -139,14 +155,22 @@ class Editor(Screen):
         if event.key == "tab" and focused and focused.id == "text_area":
             focused.insert_text("    ")
             event.stop()
-        if event.key == "enter" and focused and focused.id == "cmd_input_text_area":
+        elif event.key == "enter" and focused and focused.id == "cmd_input_text_area":
             self.query_one("#cmd_output_text_area").insert_text(self.cmd_output)
+        elif event.key != "tab" or "enter" and focused and focused.id == "text_area":
+            self.highlight_code()
     
     async def on_button_pressed(self, event: Key):
         id = event.button.id
         if id == "cmd_run_btn":
             self.cmd_output = subprocess.run(self.query_one("#cmd_input_text_area").text, shell=True, capture_output=True, text=True).stdout
             self.query_one("#cmd_output_text_area").text = self.cmd_output
+    
+    def highlight_code(self):
+        ta = self.query_one(TextArea)
+        code = ta.text
+        for line in code:
+            print(line)
 
 
 # -----------------------------
