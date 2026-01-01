@@ -1,0 +1,7 @@
+#sidebar-container {
+    width: 20%;
+}
+
+#cmd_input_text_area {
+    height: 20%;
+}
