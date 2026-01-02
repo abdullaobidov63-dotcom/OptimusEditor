@@ -1,12 +1,23 @@
 from pathlib import Path
 from textual.app import App, ComposeResult, Screen
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Header, Footer, DirectoryTree, TextArea, Markdown, TabbedContent, TabPane, Button, Label, Input
+from textual.widgets import Header, Footer, DirectoryTree, TextArea, Markdown, TabbedContent, TabPane, Button, Label, Input, Static
+from textual.timer import Timer
 from textual.binding import Binding
 from textual.events import Key
 from core.highlight import *
+from pygments.lexers import PythonLexer, get_lexer_by_name
+from pygments.formatters import TerminalFormatter
+from pygments import highlight as pyg_highlight
+from pygments.util import ClassNotFound
+from rich.text import Text
 import subprocess
 import re
+
+class CodeView(Static):
+    def update_code(self, rich_text: Text):
+        # Accept a rich Text object already converted from ANSI
+        self.update(rich_text)
 
 # -----------------------------
 # Экран выбора папки
@@ -49,7 +60,6 @@ class OpenFolderPage(Screen):
             self.current_folder = path.parent  # если файл — берём его папку
         self.notify(f"{self.current_folder} : Folder selected")
 
-
 # -----------------------------
 # Основной редактор
 # -----------------------------
@@ -73,16 +83,8 @@ class Editor(Screen):
 
     def on_mount(self):
         self._latest_text = "" # Последний текст/символ, который мы вводили
-        self._highlight_timer: Timer = self.set_interval(0.05, self.check_text)
-    
-    def check_text(self):
-        ta = self.query_one(TextArea)
-        code = ta.text
-        
-        if code != self._latest_text:
-            self.notify("Changed")
-        else:
-            pass
+        # Обновляем подсветку каждые 0.25 секунды
+        self._highlight_timer: Timer = self.set_interval(0.25, self.highlight_code)
 
     def compose(self) -> ComposeResult:
         # Верхний и нижний колонтитулы
@@ -101,7 +103,9 @@ class Editor(Screen):
                     # Вкладка с папкой / кодом по умолчанию
                     tab_name = str(self.work_dir.name if self.work_dir else "New Tab")
                     with TabPane(tab_name):
-                        yield TextArea(self.text_area_text, language="python", id="text_area")
+                        with Horizontal():
+                            yield TextArea(self.text_area_text, language="python", id="text_area")
+                            yield CodeView(id="code_view")
                     with TabPane("Terminal"):
                         yield TextArea(self.cmd_output, id="cmd_output_text_area")
                         yield TextArea(self.cmd_input, id="cmd_input_text_area")
@@ -157,7 +161,8 @@ class Editor(Screen):
             event.stop()
         elif event.key == "enter" and focused and focused.id == "cmd_input_text_area":
             self.query_one("#cmd_output_text_area").insert_text(self.cmd_output)
-        elif event.key != "tab" or "enter" and focused and focused.id == "text_area":
+        elif focused and focused.id == "text_area":
+            # Любая клавиша в текстовой области — запустить обновление подсветки
             self.highlight_code()
     
     async def on_button_pressed(self, event: Key):
@@ -167,10 +172,28 @@ class Editor(Screen):
             self.query_one("#cmd_output_text_area").text = self.cmd_output
     
     def highlight_code(self):
-        ta = self.query_one(TextArea)
-        code = ta.text
-        for line in code:
-            print(line)
+        try:
+            ta = self.query_one(TextArea)
+        except Exception:
+            return
+
+        code = ta.text or ""
+        # определяем язык подсветки: сначала используем свойство TextArea, иначе guess по текущему файлу
+        lang = getattr(ta, "language", None) or (get_file_ext(str(self.current_file)) if self.current_file else "text")
+
+        try:
+            lexer = get_lexer_by_name(lang)
+        except ClassNotFound:
+            lexer = PythonLexer()
+
+        ansi = pyg_highlight(code, lexer, TerminalFormatter())
+        rich_text = Text.from_ansi(ansi)
+
+        try:
+            self.query_one(CodeView).update(rich_text)
+        except Exception:
+            # если нет CodeView — игнорируем
+            pass
 
 
 # -----------------------------
