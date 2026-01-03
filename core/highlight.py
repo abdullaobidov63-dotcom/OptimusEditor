@@ -16,9 +16,18 @@ LANG_MAP = {
 }
 
 def get_file_ext(file_path: str) -> str:
-    """Return a language key for pygments/get_lexer_by_name or 'text'. Uses pathlib to be OS-independent."""
-    p = Path(file_path)
-    ext = p.suffix.lower()
-    if not ext:
+    # ищем точку в последней части пути
+    parts = file_path.rsplit("/", 1)  # разделяем путь на dirs и имя файла
+    file_name = parts[-1]             # берём только имя файла
+
+    if "." not in file_name:
+        return "text"                 # нет расширения → plain text
+
+    # берём расширение с точки до конца
+    ext = "." + file_name.split(".")[-1].lower()
+
+    if ext in LANG_MAP:
+        return LANG_MAP[ext]
+    else:
         return "text"
     return LANG_MAP.get(ext, "text")

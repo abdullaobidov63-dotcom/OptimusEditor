@@ -14,16 +14,26 @@ from rich.text import Text
 import subprocess
 import re
 
+"""
+FIXME: Сделать адекватные вкладки, а не только с терминалом.
+TODO: При починке компа, начать изучение трёхлетнего RoadMap по изучению IT в целом.
+TODO: И ещё, до конца сделать комменты для кода. 
+"""
+
+# Класс для отображения подсвеченного кода
 class CodeView(Static):
+    # Метод для обновления самого текста, Text из Rich
     def update_code(self, rich_text: Text):
-        # Accept a rich Text object already converted from ANSI
         self.update(rich_text)
 
 # -----------------------------
 # Экран выбора папки
 # -----------------------------
-class OpenFolderPage(Screen):
 
+# Экран выбора Папки(если пользователь выберет файл, то редактор откроет папку, в котором находится сам файл)
+class OpenFolderPage(Screen):
+    # Стили для самой странички
+    CSS = """
     #sidebar-container {
         width: 20%;
     }
@@ -41,28 +51,30 @@ class OpenFolderPage(Screen):
         width: 25;
     }
     """
+    # Название окна, наименование.  
     TITLE = "OptimusEditor"
     SUBTITLE = "File"
 
-    # 2. ИСПРАВЛЕНО: action="command_palette" (без опечатки)
+    # Горячие клавиши
     BINDINGS = [
         Binding(key="ctrl+alt+p", action="command_palette", description="Палитра Команд")
     ]
 
+    # Метод инициализации класса
     def __init__(self):
         super().__init__()
+        #  Для открытых файлов.
         self.open_files = {}
+        # Текст в редакторе.
         self.text_area_text = '''print("Hello, World!")'''
+        # Директория, в которой будем находится
         self.work_dir = "./"
 
+    # Распологаем элементы(просто для отрисовки)
     def compose(self) -> ComposeResult:
+        # Верхний колонтитул
         yield Header(id="header")
-        with Horizontal():
-            with Vertical(id="sidebar-container"):
-                if self.work_dir != "":
-                    yield DirectoryTree(self.work_dir)
-            with Vertical(id="main-content-container"):
-                yield TextArea(self.text_area_text, language="python")
+        # Текст
         yield Label("Выберите папку (только папку)")
 
         # Дерево папок
@@ -72,30 +84,40 @@ class OpenFolderPage(Screen):
         yield Button("Выбрать", id="select")
         yield Button("Отменить", id="cancel")
 
+    # Метод, срабатывающий при нажатии всех кнопок в приложении.
     def on_button_pressed(self, event):
         # Нажатие кнопки
+        # Проверяем какая кнопка нажата
         if event.button.id == "select":
-            if self.current_folder is not None:
-                # Передаём выбранную папку в Editor
+            # Если это кнопка "Выбрать папку", то --\
+            if self.current_folder is not None: #   |
+                # Передаём выбранную папку в Editor/
                 self.app.push_screen(Editor(self.current_folder))
             else:
+                # Если папка/файл не выбран.
                 self.notify("Вы не выбрали папку!")
+        # Нажата кнопка "Отменить", выходим из программы.
         elif event.button.id == "cancel":
             self.app.exit()
 
+    # Метод, вызывающийся, когда пользователь выбрал элемент из DirectoryTree(выбрал папку/файл)
     def on_directory_tree_file_selected(self, event):
         # Когда выбирается файл или папка в дереве
+        # Узнаём местонахождение данного выбранного файла на диске, и конвертируем его в класс Path.
         path = Path(event.path)
+        # Если выбранный эелемент -- Папка
         if path.is_dir():
             self.current_folder = path  # если выбрана папка — используем её
         else:
             self.current_folder = path.parent  # если файл — берём его папку
+        # Уведомление о выборе определённого объекта из DirectoryTree.
         self.notify(f"{self.current_folder} : Folder selected")
 
 # -----------------------------
 # Основной редактор
 # -----------------------------
 class Editor(Screen):
+    # Стили для редактора
     CSS_PATH = "./css/editor.tcss"
     # Горячие клавиши
     BINDINGS = [
@@ -103,6 +125,7 @@ class Editor(Screen):
         Binding(key="ctrl+o", action="open_folder", description="Открыть Папку")
     ]
 
+    # Метод инициализации класса
     def __init__(self, work_dir: Path):
         super().__init__()
         self.work_dir = work_dir       # Папка, открытая пользователем
@@ -110,44 +133,46 @@ class Editor(Screen):
         self.text_area_text = "print('Hello, World!')"  # Начальный текст
 
         self.cmd_input = "" # для ввода в терминале
-        self.cmd_send = subprocess.run(self.cmd_input, shell=True, capture_output=True, text=True)
+        self.cmd_send = subprocess.run(self.cmd_input, shell=True, capture_output=True, text=True)# Для ввода комманд в терминале
         self.cmd_output = self.cmd_send.stdout # Получаем вывод команды
 
+    # Метод, вызывается только тогда, когда приложение отобразило элементы интерфейса
     def on_mount(self):
         self._latest_text = "" # Последний текст/символ, который мы вводили
         # Обновляем подсветку каждые 0.25 секунды
-        self._highlight_timer: Timer = self.set_interval(0.25, self.highlight_code)
+        self._highlight_timer: Timer = self.set_interval(0.25, self.highlight_code) # Таймер
 
     def compose(self) -> ComposeResult:
         # Верхний и нижний колонтитулы
         yield Header()
         yield Footer()
-
-    def action_create_file(self):
-        self.notify("File Created")
-
-    def action_open_file(self):
-        self.notify("File Opened")
-
             # Основная панель
-            with Vertical(id="main-content-container"):
-                with TabbedContent():
-                    # Вкладка с папкой / кодом по умолчанию
-                    tab_name = str(self.work_dir.name if self.work_dir else "New Tab")
-                    with TabPane(tab_name):
-                        with Horizontal():
-                            yield TextArea(self.text_area_text, language="python", id="text_area")
-                            yield CodeView(id="code_view")
-                    with TabPane("Terminal"):
-                        yield TextArea(self.cmd_output, id="cmd_output_text_area")
-                        yield TextArea(self.cmd_input, id="cmd_input_text_area")
-                        yield Button("Run Command", id="cmd_run_btn")
+        # Основное содержимое
+        with Vertical(id="main-content-container"):
+            # Табы
+            with TabbedContent():
+                # Вкладка с папкой / кодом по умолчанию
+                tab_name = str(self.work_dir.name if self.work_dir else "New Tab")
+                with TabPane(tab_name):
+                    with Horizontal():
+                        # Виджет, позволяющий отображать, и редактировать текст.
+                        yield TextArea(self.text_area_text, language="python", id="text_area")
+                        # Также виджет, но нужен для подсветки синтаксиса.
+                        yield CodeView(id="code_view")
+                # Вкладка с терминалом
+                with TabPane("Terminal"):
+                    # Распологаем TextArea, содержимое которого будет вывод консоли
+                    yield TextArea(self.cmd_output, id="cmd_output_text_area")
+                    # Так же TextArea, но содержимое будет введённая пользователем команда в терминале
+                    yield TextArea(self.cmd_input, id="cmd_input_text_area")
+                    # Кнопка запуска введённой команды
+                    yield Button("Run Command", id="cmd_run_btn")
 
-                    # Вкладка Markdown — появится только если выбран файл .md
-                    if self.current_file and self.current_file.suffix == ".md":
-                        with TabPane(self.current_file.name):
-                            md_text = self.current_file.read_text(encoding="utf-8")
-                            yield Markdown(md_text)
+                # Вкладка Markdown — появится только если выбран файл .md
+                if self.current_file and self.current_file.suffix == ".md":
+                    with TabPane(self.current_file.name):
+                        md_text = self.current_file.read_text(encoding="utf-8")
+                        yield Markdown(md_text)
 
     # -----------------------------
     # Сохранение файла
